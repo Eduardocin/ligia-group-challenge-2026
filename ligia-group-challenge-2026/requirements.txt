@@ -1,0 +1,21 @@
+# Core
+pip
+python-dotenv
+ruff
+
+# Data Science & ML
+numpy
+pandas
+scikit-learn
+matplotlib
+seaborn
+
+# Jupyter
+jupyter
+ipykernel
+
+# Development
+pytest
+
+# Install package in editable mode
+-e .
