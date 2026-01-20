@@ -3,11 +3,11 @@ requires = ["flit_core >=3.2,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
-name = "Ligia Group"
+name = "main"
 version = "0.0.1"
 description = "simple project for LIGIA"
 authors = [
-  { name = "Ligia grouo" },
+  { name = "Ligia Group" },
 ]
 license = { file = "LICENSE" }
 readme = "README.md"
@@ -20,13 +20,13 @@ requires-python = "~=3.12.0"
 
 [tool.ruff]
 line-length = 99
-src = ["Ligia Group"]
-include = ["pyproject.toml", "Ligia Group/**/*.py"]
+src = ["main"]
+include = ["pyproject.toml", "main/**/*.py"]
 
 [tool.ruff.lint]
 extend-select = ["I"]  # Add import sorting
 
 [tool.ruff.lint.isort]
-known-first-party = ["Ligia Group"]
+known-first-party = ["main"]
 force-sort-within-sections = true
 
