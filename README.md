@@ -32,7 +32,6 @@ Projeto de Data Science para o Ligia Group Challenge 2026
 
 4. **Instale as dependências**
    ```bash
-   cd ligia-group-challenge-2026
    pip install -r requirements.txt
    ```
 
