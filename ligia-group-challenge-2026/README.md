@@ -1,10 +1,62 @@
-# Ligia
+# Ligia Group Challenge 2026
 
 <a target="_blank" href="https://cookiecutter-data-science.drivendata.org/">
     <img src="https://img.shields.io/badge/CCDS-Project%20template-328F97?logo=cookiecutter" />
 </a>
 
-simple project for LIGIA
+Projeto de Data Science para o Ligia Group Challenge 2026
+
+## 🚀 Setup do Ambiente
+
+### Pré-requisitos
+- [Miniconda](https://docs.conda.io/en/latest/miniconda.html) ou Anaconda instalado
+- Git
+
+### Instalação
+
+1. **Clone o repositório**
+   ```bash
+   git clone <url-do-repositorio>
+   cd ligia-group-challenge-2026
+   ```
+
+2. **Crie o ambiente conda**
+   ```bash
+   conda create -n ligia python=3.12 -y
+   ```
+
+3. **Ative o ambiente**
+   ```bash
+   conda activate ligia
+   ```
+
+4. **Instale as dependências**
+   ```bash
+   cd ligia-group-challenge-2026
+   pip install -r requirements.txt
+   ```
+
+5. **Configure o kernel do Jupyter** (opcional, para usar notebooks)
+   ```bash
+   python -m ipykernel install --user --name=ligia --display-name="Python (ligia)"
+   ```
+
+### Verificação da Instalação
+
+```bash
+# Verifique se o ambiente está ativo
+conda info --envs
+
+# Teste a instalação de pacotes
+python -c "import numpy, pandas, sklearn; print('✅ Ambiente configurado!')"
+```
+
+## 📦 Dependências Principais
+
+- **Data Science**: numpy, pandas, scikit-learn, scipy
+- **Visualização**: matplotlib, seaborn
+- **Notebooks**: jupyter, ipykernel
+- **Desenvolvimento**: pytest, ruff, python-dotenv
 
 ## Project Organization
 
@@ -39,9 +91,9 @@ simple project for LIGIA
 │
 ├── setup.cfg          <- Configuration file for flake8
 │
-└── Ligia Group   <- Source code for use in this project.
+└── main              <- Source code for use in this project.
     │
-    ├── __init__.py             <- Makes Ligia Group a Python module
+    ├── __init__.py             <- Makes main a Python module
     │
     ├── config.py               <- Store useful variables and configuration
     │
@@ -56,6 +108,21 @@ simple project for LIGIA
     │
     └── plots.py                <- Code to create visualizations
 ```
+
+## 🛠️ Comandos Úteis (Makefile)
+
+```bash
+make requirements    # Instala dependências
+make clean          # Remove arquivos compilados Python
+make lint           # Verifica qualidade do código
+make format         # Formata código automaticamente
+```
+
+## 📝 Convenções
+
+- **Notebooks**: Use numeração e descrição, ex: `01-analise-exploratoria.ipynb`
+- **Commits**: Siga [Conventional Commits](https://www.conventionalcommits.org/)
+- **Código**: Formatado automaticamente com ruff
 
 --------
 
