@@ -4,7 +4,27 @@
     <img src="https://img.shields.io/badge/CCDS-Project%20template-328F97?logo=cookiecutter" />
 </a>
 
-Projeto de Data Science para o Ligia Group Challenge 2026
+Projeto de Data Science para análise e predição de doenças cardiovasculares
+
+## 📊 Dataset
+
+Este projeto utiliza o **Cardiovascular Disease Dataset** do Kaggle, que contém 1000 registros de pacientes com 14 variáveis relacionadas a fatores de risco cardiovascular.
+
+### Variáveis do Dataset:
+- **patientid**: ID do paciente
+- **age**: Idade
+- **gender**: Gênero (0=Feminino, 1=Masculino)
+- **chestpain**: Tipo de dor no peito
+- **restingBP**: Pressão arterial em repouso
+- **serumcholestrol**: Colesterol sérico
+- **fastingbloodsugar**: Glicemia em jejum
+- **restingrelectro**: Resultados do eletrocardiograma em repouso
+- **maxheartrate**: Frequência cardíaca máxima
+- **exerciseangia**: Angina induzida por exercício
+- **oldpeak**: Depressão do segmento ST
+- **slope**: Inclinação do segmento ST
+- **noofmajorvessels**: Número de vasos principais
+- **target**: Presença de doença cardíaca (0=Não, 1=Sim)
 
 ## 🚀 Setup do Ambiente
 
@@ -50,12 +70,7 @@ conda info --envs
 python -c "import numpy, pandas, sklearn; print('✅ Ambiente configurado!')"
 ```
 
-## 📦 Dependências Principais
 
-- **Data Science**: numpy, pandas, scikit-learn, scipy
-- **Visualização**: matplotlib, seaborn
-- **Notebooks**: jupyter, ipykernel
-- **Desenvolvimento**: pytest, ruff, python-dotenv
 
 ## Project Organization
 
