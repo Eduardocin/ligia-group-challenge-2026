@@ -70,6 +70,19 @@ conda info --envs
 python -c "import numpy, pandas, sklearn; print('✅ Ambiente configurado!')"
 ```
 
+## Como Executar o App Streamlit
+
+1. Instale as dependências:
+   ```
+   pip install -r 
+   ```
+
+2. Execute o app:
+   ```
+   streamlit run 
+   ```
+
+3. Abra o navegador em `http://localhost:8501` para visualizar o app.
 
 
 ## Project Organization
