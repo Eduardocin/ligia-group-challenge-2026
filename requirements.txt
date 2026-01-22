@@ -10,6 +10,9 @@ scikit-learn
 matplotlib
 seaborn
 
+# Streamlit
+streamlit
+
 # Jupyter
 jupyter
 ipykernel
