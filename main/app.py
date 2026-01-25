@@ -1,7 +1,8 @@
 """
 Sistema de Apoio ao Diagnóstico Cardiovascular
 ===============================================
-Correção: 'patientid' fixado em 0 (invisível para o usuário).
+Aplicação Streamlit para classificação de doenças cardíacas
+utilizando aprendizado de máquina.
 """
 
 import streamlit as st
@@ -12,14 +13,14 @@ import joblib
 import pdfplumber
 import re
 
-# Configuração de paths
+# Configurações iniciais
 BASE_DIR = Path(__file__).resolve().parent.parent
 MODELS_DIR = BASE_DIR / 'models'
 PROCESSED_DIR = BASE_DIR / 'data' / 'processed'
 
 st.set_page_config(page_title="Diagnóstico Cardiovascular", page_icon="❤️", layout="centered")
 
-# --- MAPAS DE CONVERSÃO ---
+# Dicionários de conversão de dados
 MAP_GENDER = {"Masculino": 1, "Feminino": 0}
 MAP_ANGINA = {"Sim": 1, "Não": 0}
 MAP_CHEST_PAIN = {
@@ -40,11 +41,11 @@ MAP_SLOPE = {
     "Não informado": None
 }
 
-# --- INICIALIZAÇÃO DE ESTADO ---
+# Controle de estado da interface
 if 'view_mode' not in st.session_state:
     st.session_state.view_mode = "📝 Inserção Manual"
 
-# --- CARREGAMENTO ---
+# Carregamento do modelo e do scaler
 @st.cache_resource
 def load_model():
     model_path = MODELS_DIR / 'best_model.pkl'
@@ -57,7 +58,7 @@ def load_scaler():
     if scaler_path.exists(): return joblib.load(scaler_path)
     return None
 
-# --- PREDIÇÃO ---
+# Processamento e predição
 def make_prediction(model, scaler, data: dict) -> int:
     safe_data = data.copy()
     defaults = {'age': 50, 'serumcholestrol': 200, 'restingBP': 120, 'maxheartrate': 150}
@@ -65,11 +66,8 @@ def make_prediction(model, scaler, data: dict) -> int:
     for k, v in safe_data.items():
         if v is None: safe_data[k] = defaults.get(k, 0)
 
-    # --- CORREÇÃO SOLICITADA ---
-    # Adicionamos o patientid automaticamente como 0
     safe_data['patientid'] = 0
 
-    # Features Derivadas
     safe_data['cholesterol_age_ratio'] = safe_data['serumcholestrol'] / safe_data['age']
     safe_data['bp_age_index'] = safe_data['restingBP'] * safe_data['age']
     safe_data['chronotropic_reserve'] = safe_data['maxheartrate'] / (220 - safe_data['age'])
@@ -78,7 +76,6 @@ def make_prediction(model, scaler, data: dict) -> int:
     safe_data['chol_category'] = 0 if safe_data['serumcholestrol'] <= 200 else 1 if safe_data['serumcholestrol'] <= 240 else 2
     safe_data['bp_category'] = 0 if safe_data['restingBP'] <= 120 else 1 if safe_data['restingBP'] <= 160 else 2
     
-    # Adicionei 'patientid' no início da lista, pois o modelo deve estar esperando ele
     feature_order = [
         'patientid', 'age', 'gender', 'chestpain', 'restingBP', 'serumcholestrol',
         'fastingbloodsugar', 'restingrelectro', 'maxheartrate', 
@@ -89,8 +86,6 @@ def make_prediction(model, scaler, data: dict) -> int:
     
     X = pd.DataFrame([safe_data])[feature_order]
     
-    # Se o scaler foi treinado COM patientid, precisamos incluí-lo ou excluí-lo da normalização.
-    # Geralmente ID não se normaliza, mas vou manter o padrão das numéricas.
     numerical_features = [
         'age', 'restingBP', 'serumcholestrol', 'maxheartrate', 
         'oldpeak', 'noofmajorvessels', 'cholesterol_age_ratio', 
@@ -98,12 +93,11 @@ def make_prediction(model, scaler, data: dict) -> int:
     ]
     
     if scaler: 
-        # Tenta transformar apenas as colunas conhecidas
         X[numerical_features] = scaler.transform(X[numerical_features])
     
     return int(model.predict(X)[0])
 
-# --- EXTRAÇÃO DE PDF ---
+# Leitura e extração do PDF
 def extract_features_from_pdfs(uploaded_files):
     data = {}
     full_text = ""
@@ -113,7 +107,6 @@ def extract_features_from_pdfs(uploaded_files):
                 txt = page.extract_text(layout=True)
                 if txt: full_text += txt + "\n"
 
-    # Regex
     match = re.search(r"\((\d+)\s*anos\)|Idade:\s*(\d+)\s*anos", full_text)
     data['age'] = int(match.group(1) or match.group(2)) if match else None
 
@@ -161,7 +154,7 @@ def extract_features_from_pdfs(uploaded_files):
 
     return data
 
-# --- GERENCIAMENTO DE ESTADO ---
+# Funções de suporte ao formulário
 def initialize_form_state(data_source, prefix):
     fields = [
         'age', 'gender', 'restingBP', 'serumcholestrol', 'fastingbloodsugar',
@@ -179,7 +172,7 @@ def get_label(text, key):
         return f":red[{text}]"
     return text
 
-# --- RENDERIZAÇÃO DO FORMULÁRIO ---
+# Interface do formulário de entrada
 def render_form(prefix):
     col1, col2 = st.columns(2)
     k = lambda x: f"{prefix}_{x}"
@@ -237,7 +230,6 @@ def render_form(prefix):
         idx_slp = opts_slp.index(curr_slp) if curr_slp in opts_slp else None
         st.selectbox(get_label("Inclinação ST (Slope)", k('slope')), opts_slp, index=idx_slp, key=k('slope'), placeholder="Selecione...")
 
-    # Conversão para o modelo
     raw_fbs = st.session_state[k('fastingbloodsugar')]
     binary_fbs = (1 if raw_fbs > 120 else 0) if raw_fbs is not None else None
 
@@ -256,7 +248,7 @@ def render_form(prefix):
         'slope': MAP_SLOPE.get(st.session_state[k('slope')])
     }
 
-# --- MAIN ---
+# Lógica principal da aplicação
 def main():
     st.markdown("""
         <style>
@@ -329,6 +321,7 @@ def main():
                     st.session_state.pdf_loaded = False
                     st.rerun()
 
+# Exibição do resultado final
 def show_result(prediction):
     st.markdown("### Resultado:")
     if prediction == 1: st.error("⚠️ ALTO RISCO DETECTADO")
