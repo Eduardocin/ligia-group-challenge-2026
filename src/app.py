@@ -58,6 +58,12 @@ def load_scaler():
     if scaler_path.exists(): return joblib.load(scaler_path)
     return None
 
+@st.cache_resource
+def load_selected_features():
+    features_path = PROCESSED_DIR / 'selected_features.pkl'
+    if features_path.exists(): return joblib.load(features_path)
+    return None
+
 # Processamento e predição
 def make_prediction(model, scaler, data: dict) -> int:
     safe_data = data.copy()
@@ -65,8 +71,6 @@ def make_prediction(model, scaler, data: dict) -> int:
     
     for k, v in safe_data.items():
         if v is None: safe_data[k] = defaults.get(k, 0)
-
-    safe_data['patientid'] = 0
 
     safe_data['cholesterol_age_ratio'] = safe_data['serumcholestrol'] / safe_data['age']
     safe_data['bp_age_index'] = safe_data['restingBP'] * safe_data['age']
@@ -76,24 +80,20 @@ def make_prediction(model, scaler, data: dict) -> int:
     safe_data['chol_category'] = 0 if safe_data['serumcholestrol'] <= 200 else 1 if safe_data['serumcholestrol'] <= 240 else 2
     safe_data['bp_category'] = 0 if safe_data['restingBP'] <= 120 else 1 if safe_data['restingBP'] <= 160 else 2
     
-    feature_order = [
-        'patientid', 'age', 'gender', 'chestpain', 'restingBP', 'serumcholestrol',
-        'fastingbloodsugar', 'restingrelectro', 'maxheartrate', 
-        'exerciseangia', 'oldpeak', 'slope', 'noofmajorvessels',
-        'age_group', 'chol_category', 'bp_category',
-        'cholesterol_age_ratio', 'bp_age_index', 'chronotropic_reserve'
-    ]
+    selected_features = load_selected_features()
+    if not selected_features:
+        raise ValueError("Selected features not found")
     
-    X = pd.DataFrame([safe_data])[feature_order]
+    X = pd.DataFrame([safe_data])
     
-    numerical_features = [
-        'age', 'restingBP', 'serumcholestrol', 'maxheartrate', 
-        'oldpeak', 'noofmajorvessels', 'cholesterol_age_ratio', 
-        'bp_age_index', 'chronotropic_reserve'
-    ]
+    numerical_features = ['age', 'restingBP', 'serumcholestrol', 
+                          'maxheartrate', 'oldpeak', 'noofmajorvessels', 
+                          'cholesterol_age_ratio', 'bp_age_index', 'chronotropic_reserve']
     
     if scaler: 
         X[numerical_features] = scaler.transform(X[numerical_features])
+
+    X = X[selected_features]
     
     return int(model.predict(X)[0])
 
