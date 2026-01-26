@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
 import joblib
 import warnings
 
@@ -28,6 +29,7 @@ def load_raw_data(filepath: Path) -> pd.DataFrame:
     """Carrega os dados brutos do arquivo CSV."""
     df = pd.read_csv(filepath)
     return df
+
 
 
 def clean_data(df: pd.DataFrame) -> pd.DataFrame:
@@ -54,9 +56,10 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     return df_clean
 
 
+
 def create_features(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Cria novas features:
+    Cria novas features baseado em dados médicos:
     - age_group: categorização da idade
     - chol_category: categorização do colesterol
     - bp_category: categorização da pressão arterial
@@ -69,21 +72,21 @@ def create_features(df: pd.DataFrame) -> pd.DataFrame:
     # Categorização da idade
     df_feat['age_group'] = pd.cut(
         df_feat['age'],
-        bins=[0, 40, 60, 120],
+        bins=[0, 40, 60, np.inf],
         labels=[0, 1, 2]  # 0=jovem, 1=meia-idade, 2=idoso
     ).astype(int)
     
     # Categorização do colesterol sérico
     df_feat['chol_category'] = pd.cut(
         df_feat['serumcholestrol'],
-        bins=[0, 200, 240, 700],
+        bins=[0, 200, 240, np.inf],
         labels=[0, 1, 2]  # 0=normal, 1=limítrofe, 2=alto
     ).astype(int)
     
     # Categorização da pressão arterial sistólica
     df_feat['bp_category'] = pd.cut(
         df_feat['restingBP'],
-        bins=[0, 120, 160, 240],
+        bins=[0, 120, 160, np.inf],
         labels=[0, 1, 2]  # 0=normal, 1=elevada, 2=alta
     ).astype(int)
     
@@ -95,10 +98,73 @@ def create_features(df: pd.DataFrame) -> pd.DataFrame:
     return df_feat
 
 
-def normalize_features(df: pd.DataFrame) -> tuple[pd.DataFrame, StandardScaler, list]:
+
+def split_train_test(df: pd.DataFrame, test_size: float = 0.3, random_state: int = 42):
+    """
+    Divide os dados em treino e teste ANTES de normalizar.
+    """
+    X = df.drop('target', axis=1)
+    y = df['target']
+    
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, 
+        test_size=test_size, 
+        random_state=random_state, 
+        stratify=y
+    )
+    
+    return X_train, X_test, y_train, y_test
+
+
+
+def select_features(X_train: pd.DataFrame, y_train: pd.Series, correlation_threshold: float = 0.1) -> tuple[list, dict]:
+    """
+    Seleciona features baseado em correlação com target.
+    Usa APENAS dados de treino para evitar data leakage.
+    """
+    # Features numéricas
+    numerical_features = [
+        'age', 'restingBP', 'serumcholestrol', 'maxheartrate', 
+        'oldpeak', 'noofmajorvessels', 'cholesterol_age_ratio', 
+        'bp_age_index', 'chronotropic_reserve'
+    ]
+    
+    # Criar DataFrame temporário para análise
+    train_data = X_train.copy()
+    train_data['target'] = y_train
+    
+    # Calcular correlação
+    correlation_matrix = train_data[numerical_features + ['target']].corr()
+    target_corr = correlation_matrix['target'].abs().sort_values(ascending=False)
+    
+    # Seleção baseada em threshold
+    selected_features_corr = target_corr[target_corr > correlation_threshold].index.tolist()
+    selected_features_corr.remove('target') if 'target' in selected_features_corr else None
+    
+    # Remover features originais se categorizações estiverem presentes
+    for feat in ['restingBP', 'serumcholestrol', 'age']:
+        if feat in selected_features_corr:
+            selected_features_corr.remove(feat)
+    
+    # Features categóricas
+    categorical_features = ['gender', 'chestpain', 'restingelectro', 'slope', 'age_group', 'chol_category', 'bp_category']
+    
+    # Lista final
+    selected_features = selected_features_corr + categorical_features
+    
+    selected_features_dict = {
+        'numerical_selected': selected_features_corr,
+        'categorical': categorical_features,
+        'all': selected_features
+    }
+    
+    return selected_features, selected_features_dict
+
+
+
+def normalize_features(X_train: pd.DataFrame, X_test: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, StandardScaler, list]:
     """
     Normaliza features numéricas usando StandardScaler.
-    Retorna o DataFrame normalizado, o scaler treinado e a lista de features normalizadas.
     """
     numerical_features_to_scale = [
         'age', 'restingBP', 'serumcholestrol', 'maxheartrate', 
@@ -106,120 +172,153 @@ def normalize_features(df: pd.DataFrame) -> tuple[pd.DataFrame, StandardScaler, 
         'bp_age_index', 'chronotropic_reserve'
     ]
     
+    # Criar e ajustar scaler APENAS no treino
     scaler = StandardScaler()
-    df_scaled = df.copy()
-    df_scaled[numerical_features_to_scale] = scaler.fit_transform(df[numerical_features_to_scale])
+    scaler.fit(X_train[numerical_features_to_scale])
     
-    return df_scaled, scaler, numerical_features_to_scale
+    # Aplicar em ambos
+    X_train_scaled = X_train.copy()
+    X_test_scaled = X_test.copy()
+    
+    X_train_scaled[numerical_features_to_scale] = scaler.transform(X_train[numerical_features_to_scale])
+    X_test_scaled[numerical_features_to_scale] = scaler.transform(X_test[numerical_features_to_scale])
+    
+    return X_train_scaled, X_test_scaled, scaler, numerical_features_to_scale
 
-
-def get_selected_features() -> dict:
-    """
-    Retorna as features selecionadas para modelagem.
-    """
-    selected_features = {
-        'numerical': [
-            'maxheartrate', 'oldpeak', 'noofmajorvessels',
-            'cholesterol_age_ratio', 'bp_age_index', 'chronotropic_reserve'
-        ],
-        'categorical': [
-            'gender', 'chestpain', 'restingelectro', 'slope',
-            'age_group', 'chol_category', 'bp_category'
-        ],
-        'target': 'target'
-    }
-    selected_features['all'] = selected_features['numerical'] + selected_features['categorical']
-    return selected_features
 
 
 def save_processed_data(
-    df: pd.DataFrame, 
-    df_scaled: pd.DataFrame, 
+    X_train: pd.DataFrame, 
+    X_test: pd.DataFrame, 
+    y_train: pd.Series,
+    y_test: pd.Series,
     scaler: StandardScaler,
+    selected_features: list,
+    selected_features_dict: dict,
     output_dir: Path
 ) -> dict:
     """
-    Salva os dados processados e o scaler.
-    Retorna um dicionário com os caminhos dos arquivos salvos.
+    Salva os dados processados divididos em treino/teste e o scaler.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Dataset com features originais + novas
-    processed_file = output_dir / 'cardiovascular_processed.csv'
-    df.to_csv(processed_file, index=False, sep=";")
+    # Salvar conjuntos
+    train_file = output_dir / 'X_train.csv'
+    test_file = output_dir / 'X_test.csv'
+    y_train_file = output_dir / 'y_train.csv'
+    y_test_file = output_dir / 'y_test.csv'
     
-    # Dataset normalizado
-    processed_scaled_file = output_dir / 'cardiovascular_processed_scaled.csv'
-    df_scaled.to_csv(processed_scaled_file, index=False, sep=";")
+    X_train.to_csv(train_file, index=False, sep=";")
+    X_test.to_csv(test_file, index=False, sep=";")
+    y_train.to_csv(y_train_file, index=False, sep=";", header=True)
+    y_test.to_csv(y_test_file, index=False, sep=";", header=True)
     
-    # Salvar scaler para uso em produção/inferência
+    # Salvar scaler
     scaler_file = output_dir / 'scaler.pkl'
     joblib.dump(scaler, scaler_file)
     
-    # Salvar metadados das features selecionadas
-    selected_features = get_selected_features()
+    # Salvar features
     features_file = output_dir / 'selected_features.pkl'
-    joblib.dump(selected_features, features_file)
+    joblib.dump(selected_features_dict, features_file)
     
     return {
-        'processed': processed_file,
-        'scaled': processed_scaled_file,
+        'train': train_file,
+        'test': test_file,
+        'y_train': y_train_file,
+        'y_test': y_test_file,
         'scaler': scaler_file,
         'features': features_file
     }
 
 
+
 def run_pipeline() -> dict:
     """
     Executa o pipeline completo de pré-processamento.
-    Retorna um dicionário com os resultados e caminhos dos arquivos.
     """
     print("=" * 60)
     print("PIPELINE DE PRÉ-PROCESSAMENTO")
     print("=" * 60)
     
-    # 1. Carregar dados brutos
+    # 1. Carregar dados
     print("Etapa 1: Carregamento de dados - ", end="")
     df_raw = load_raw_data(RAW_DATA_PATH)
     print("OK")
+    print(f"Colunas carregadas: {df_raw.columns.tolist()}")
     
-    # 2. Limpeza dos dados
+    # 2. Limpeza
     print("Etapa 2: Limpeza de dados - ", end="")
     df_clean = clean_data(df_raw)
     print("OK")
     
-    # 3. Feature Engineering
-    print("Etapa 3: Feature Engineering - ", end="")
+    # 3. Criar features
+    print("Etapa 3: Criação de features - ", end="")
     df_features = create_features(df_clean)
     print("OK")
+    print(f"Colunas após features: {df_features.columns.tolist()}")
     
-    # 4. Normalização
-    print("Etapa 4: Normalização - ", end="")
-    df_scaled, scaler, scaled_features = normalize_features(df_features)
+    # 4. Divisão treino/teste
+    print("Etapa 4: Divisão Treino/Teste - ", end="")
+    X_train, X_test, y_train, y_test = split_train_test(df_features)
+    print("OK")
+    print(f"  Treino: {len(X_train)} amostras | Teste: {len(X_test)} amostras")
+    print(f"Colunas X_train: {X_train.columns.tolist()}")
+    
+    # 5. Seleção de features
+    print("Etapa 5: Seleção de Features - ", end="")
+    selected_features, selected_features_dict = select_features(X_train, y_train)
+    print("OK")
+    print(f"  Features selecionadas: {len(selected_features)}")
+    print(f"Features selecionadas: {selected_features}")
+    
+    # 6. Normalização
+    print("Etapa 6: Normalização - ", end="")
+    X_train_scaled, X_test_scaled, scaler, scaled_features = normalize_features(X_train, X_test)
+    print("OK")
+    print(f"Colunas X_train_scaled: {X_train_scaled.columns.tolist()}")
+    
+    # 7. Aplicar seleção
+    print("Etapa 7: Aplicação Feature Selection - ", end="")
+    # Verificar se todas as features selecionadas estão presentes
+    missing_features = [feat for feat in selected_features if feat not in X_train_scaled.columns]
+    if missing_features:
+        print(f"ERRO: Features faltando: {missing_features}")
+        # Remover features faltando da lista
+        selected_features = [feat for feat in selected_features if feat in X_train_scaled.columns]
+        print(f"Features ajustadas: {selected_features}")
+    
+    X_train_final = X_train_scaled[selected_features]
+    X_test_final = X_test_scaled[selected_features]
     print("OK")
     
-    # 5. Salvar dados processados
-    print("Etapa 5: Salvamento - ", end="")
-    saved_files = save_processed_data(df_features, df_scaled, scaler, PROCESSED_DIR)
+    # 8. Salvar
+    print("Etapa 8: Salvamento - ", end="")
+    saved_files = save_processed_data(
+        X_train_final, X_test_final, y_train, y_test,
+        scaler, selected_features, selected_features_dict,
+        PROCESSED_DIR
+    )
     print("OK")
     
-    # Resumo final
-    selected_features = get_selected_features()
+    # Resumo
     print("\n" + "=" * 60)
     print("RESUMO")
     print("=" * 60)
-    print(f"Linhas processadas: {len(df_features)}")
-    print(f"Total de features: {df_features.shape[1]}")
-    print(f"Features selecionadas: {len(selected_features['all'])}")
+    print(f"Total de linhas: {len(df_features)}")
+    print(f"Treino: {X_train_final.shape[0]} × {X_train_final.shape[1]} features")
+    print(f"Teste: {X_test_final.shape[0]} × {X_test_final.shape[1]} features")
     print("=" * 60)
     
     return {
-        'df': df_features,
-        'df_scaled': df_scaled,
+        'X_train': X_train_final,
+        'X_test': X_test_final,
+        'y_train': y_train,
+        'y_test': y_test,
         'scaler': scaler,
-        'selected_features': selected_features,
+        'selected_features': selected_features_dict,
         'saved_files': saved_files
     }
+
 
 
 if __name__ == "__main__":
