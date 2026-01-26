@@ -7,12 +7,15 @@ ruff
 numpy
 pandas
 scikit-learn
-xgboost-cpu
+xgboost
 matplotlib
 seaborn
 
 # Streamlit
 streamlit
+
+#
+pdfplumber
 
 # Jupyter
 jupyter
