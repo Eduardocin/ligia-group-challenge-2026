@@ -18,7 +18,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 MODELS_DIR = BASE_DIR / 'models'
 PROCESSED_DIR = BASE_DIR / 'data' / 'processed'
 
-st.set_page_config(page_title="Diagnóstico Cardiovascular", page_icon="❤️", layout="centered")
+st.set_page_config(page_title="Diagnóstico Cardiovascular", page_icon="❤️", layout="wide")
 
 # Dicionários de conversão de dados
 MAP_GENDER = {"Masculino": 1, "Feminino": 0}
@@ -80,12 +80,9 @@ def make_prediction(model, scaler, data: dict) -> int:
     safe_data['chol_category'] = 0 if safe_data['serumcholestrol'] <= 200 else 1 if safe_data['serumcholestrol'] <= 240 else 2
     safe_data['bp_category'] = 0 if safe_data['restingBP'] <= 120 else 1 if safe_data['restingBP'] <= 160 else 2
     
-    selected_features = load_selected_features()
-    if not selected_features:
-        raise ValueError("Selected features not found")
-    
     X = pd.DataFrame([safe_data])
     
+    # Aplicar escalonamento nas features numéricas originais
     numerical_features = ['age', 'restingBP', 'serumcholestrol', 
                           'maxheartrate', 'oldpeak', 'noofmajorvessels', 
                           'cholesterol_age_ratio', 'bp_age_index', 'chronotropic_reserve']
@@ -93,7 +90,14 @@ def make_prediction(model, scaler, data: dict) -> int:
     if scaler: 
         X[numerical_features] = scaler.transform(X[numerical_features])
 
-    X = X[selected_features]
+    # Features esperadas pelo modelo (sem as originais age, restingBP, serumcholestrol, fastingbloodsugar, exerciseangia)
+    model_features = ['noofmajorvessels', 'bp_age_index', 'cholesterol_age_ratio', 
+                      'maxheartrate', 'chronotropic_reserve', 'oldpeak', 
+                      'gender', 'chestpain', 'restingrelectro', 'slope', 
+                      'age_group', 'chol_category', 'bp_category']
+    
+    # Selecionar apenas as features que o modelo espera
+    X = X[model_features]
     
     return int(model.predict(X)[0])
 
@@ -248,18 +252,47 @@ def render_form(prefix):
         'slope': MAP_SLOPE.get(st.session_state[k('slope')])
     }
 
+# Carregar CSS externo
+def load_css():
+    css_file = Path(__file__).parent / 'static' / 'style.css'
+    if css_file.exists():
+        with open(css_file) as f:
+            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+
 # Lógica principal da aplicação
 def main():
+    load_css()
+    
+    # Header personalizado
     st.markdown("""
-        <style>
-        .main-title {
-            text-align: center; font-size: 2.2rem; font-weight: 700;
-            background: linear-gradient(135deg, #ff4b4b 0%, #ff6b6b 100%);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        }
-        </style>
-        <div class="main-title">❤️ Sistema de Apoio ao Diagnóstico</div>
+        <div class="custom-header">
+            <div class="header-title">
+                <div class="header-icon">❤️</div>
+                <div class="header-text">Sistema de Apoio ao Diagnóstico</div>
+                <div class="header-icon">❤️</div>
+            </div>
+            <div class="header-subtitle">
+                Análise preditiva para doenças cardiovasculares
+            </div>
+            <div class="features-grid">
+                <div class="feature-badge">
+                    <span class="feature-icon">🩺</span>
+                    <span>IA Avançada</span>
+                </div>
+                <div class="feature-badge">
+                    <span class="feature-icon">📊</span>
+                    <span>Análise Precisa</span>
+                </div>
+                <div class="feature-badge">
+                    <span class="feature-icon">⚡</span>
+                    <span>Resultado Rápido</span>
+                </div>
+            </div>
+        </div>
     """, unsafe_allow_html=True)
+
+    model = load_model()
+
 
     model = load_model()
     scaler = load_scaler()
@@ -278,7 +311,7 @@ def main():
         
         if st.button("🔍 Analisar", type="primary"):
             if any(v is None for v in data.values()):
-                st.error("Preencha os campos em vermelho.")
+                st.error("Preencha todos os campos.")
             elif model:
                 try:
                     res = make_prediction(model, scaler, data)
@@ -286,10 +319,10 @@ def main():
                 except Exception as e: st.error(f"Erro: {e}")
 
     elif st.session_state.view_mode == "📂 Upload de Exames (PDF)":
-        uploaded_files = st.file_uploader("PDFs", type="pdf", accept_multiple_files=True)
+        uploaded_files = st.file_uploader("📄 Enviar Exames em PDF", type="pdf", accept_multiple_files=True, label_visibility="visible")
         
         if uploaded_files:
-            if st.button("🚀 Processar PDF"):
+            if st.button("🚀 Processar PDF", type="primary"):
                 try:
                     extracted = extract_features_from_pdfs(uploaded_files)
                     for k in extracted.keys():
@@ -317,7 +350,7 @@ def main():
                             show_result(res)
                         except Exception as e: st.error(f"Erro: {e}")
             with col_b2:
-                if st.button("Limpar"):
+                if st.button("🗑️ Limpar", type="primary"):
                     st.session_state.pdf_loaded = False
                     st.rerun()
 
