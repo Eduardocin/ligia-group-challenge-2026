@@ -58,6 +58,44 @@ create_environment:
 # PROJECT RULES                                                                 #
 #################################################################################
 
+## Download dataset do Kaggle
+.PHONY: download_data
+download_data:
+	$(PYTHON_INTERPRETER) src/data_loader.py
+
+## Executar pré-processamento dos dados
+.PHONY: preprocess
+preprocess:
+	$(PYTHON_INTERPRETER) src/preprocessing.py
+
+## Treinar modelo
+.PHONY: train
+train:
+	$(PYTHON_INTERPRETER) src/model_training.py
+
+## Executar fluxo completo: download -> preprocess -> train
+.PHONY: pipeline
+pipeline: download_data preprocess train
+	@echo ">>> Pipeline completo executado com sucesso!"
+
+## Executar app Streamlit
+.PHONY: app
+app:
+	streamlit run src/app.py
+
+## Executar todos os notebooks em sequência
+.PHONY: notebooks
+notebooks:
+	@echo ">>> Executando notebooks..."
+	$(PYTHON_INTERPRETER) -m jupyter nbconvert --to notebook --execute notebooks/1.0_carregamento_dados.ipynb
+	$(PYTHON_INTERPRETER) -m jupyter nbconvert --to notebook --execute notebooks/1.1_verificacao_qualidade.ipynb
+	$(PYTHON_INTERPRETER) -m jupyter nbconvert --to notebook --execute notebooks/1.2_analise_univariada.ipynb
+	$(PYTHON_INTERPRETER) -m jupyter nbconvert --to notebook --execute notebooks/1.3_analise_bivariada.ipynb
+	$(PYTHON_INTERPRETER) -m jupyter nbconvert --to notebook --execute notebooks/2.0_limpeza_dados.ipynb
+	$(PYTHON_INTERPRETER) -m jupyter nbconvert --to notebook --execute notebooks/2.1_feature_engineering.ipynb
+	$(PYTHON_INTERPRETER) -m jupyter nbconvert --to notebook --execute notebooks/3.1_treinamento_do_modelo.ipynb
+	@echo ">>> Notebooks executados com sucesso!"
+
 
 
 #################################################################################

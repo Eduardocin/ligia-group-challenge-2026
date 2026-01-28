@@ -10,19 +10,20 @@ scikit-learn
 xgboost
 matplotlib
 seaborn
+joblib
 
-# Streamlit
+# Web App
 streamlit
 
-#
+# PDF Processing
 pdfplumber
 
 # Jupyter
 jupyter
 ipykernel
 
-# Data Download
-kagglehub
+# Data Download - ML Croissant para datasets do Kaggle
+mlcroissant
 
 # Development
 #pytest
