@@ -144,7 +144,7 @@ def select_features(X_train: pd.DataFrame, y_train: pd.Series, correlation_thres
             selected_features_corr.remove(feat)
     
     # Features categóricas
-    categorical_features = ['gender', 'chestpain', 'restingelectro', 'slope', 'age_group', 'chol_category', 'bp_category']
+    categorical_features = ['gender', 'chestpain', 'restingrelectro', 'slope', 'age_group', 'chol_category', 'bp_category']
     
     # Lista final
     selected_features = selected_features_corr + categorical_features
