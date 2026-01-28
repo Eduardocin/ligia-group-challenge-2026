@@ -5,7 +5,7 @@ Script para limpeza de dados e feature engineering do dataset cardiovascular.
 Prepara os dados para a etapa de treinamento de modelos.
 
 Uso:
-    python data_preprocessing.py
+    python preprocessing.py
 """
 
 import numpy as np
@@ -23,12 +23,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 RAW_DATA_PATH = BASE_DIR / 'data' / 'raw' / 'Cardiovascular_Disease_Dataset.csv'
 INTERIM_DATA_PATH = BASE_DIR / 'data' / 'interim' / 'Cardiovascular_Disease_Dataset_Clean.csv'
 PROCESSED_DIR = BASE_DIR / 'data' / 'processed'
-
-
-def load_raw_data(filepath: Path) -> pd.DataFrame:
-    """Carrega os dados brutos do arquivo CSV."""
-    df = pd.read_csv(filepath)
-    return df
 
 
 
@@ -74,21 +68,24 @@ def create_features(df: pd.DataFrame) -> pd.DataFrame:
         df_feat['age'],
         bins=[0, 40, 60, np.inf],
         labels=[0, 1, 2]  # 0=jovem, 1=meia-idade, 2=idoso
-    ).astype(int)
+    )
+    df_feat['age_group'] = df_feat['age_group'].astype(int)
     
     # Categorização do colesterol sérico
     df_feat['chol_category'] = pd.cut(
         df_feat['serumcholestrol'],
         bins=[0, 200, 240, np.inf],
         labels=[0, 1, 2]  # 0=normal, 1=limítrofe, 2=alto
-    ).astype(int)
+    )
+    df_feat['chol_category'] = df_feat['chol_category'].astype(int)
     
     # Categorização da pressão arterial sistólica
     df_feat['bp_category'] = pd.cut(
         df_feat['restingBP'],
         bins=[0, 120, 160, np.inf],
         labels=[0, 1, 2]  # 0=normal, 1=elevada, 2=alta
-    ).astype(int)
+    )
+    df_feat['bp_category'] = df_feat['bp_category'].astype(int)
     
     # Features derivadas com embasamento médico
     df_feat['cholesterol_age_ratio'] = df_feat['serumcholestrol'] / df_feat['age']
@@ -208,10 +205,19 @@ def save_processed_data(
     y_train_file = output_dir / 'y_train.csv'
     y_test_file = output_dir / 'y_test.csv'
     
-    X_train.to_csv(train_file, index=False, sep=";")
-    X_test.to_csv(test_file, index=False, sep=";")
-    y_train.to_csv(y_train_file, index=False, sep=";", header=True)
-    y_test.to_csv(y_test_file, index=False, sep=";", header=True)
+    # Garantir que todas as colunas sejam numéricas
+    X_train = X_train.apply(pd.to_numeric, errors='coerce')
+    X_test = X_test.apply(pd.to_numeric, errors='coerce')
+    
+    # Preencher possíveis NaN após conversão
+    X_train = X_train.fillna(0)
+    X_test = X_test.fillna(0)
+    
+    # Salvar sem separador customizado (padrão vírgula)
+    X_train.to_csv(train_file, index=False)
+    X_test.to_csv(test_file, index=False)
+    y_train.to_csv(y_train_file, index=False, header=True)
+    y_test.to_csv(y_test_file, index=False, header=True)
     
     # Salvar scaler
     scaler_file = output_dir / 'scaler.pkl'
@@ -235,16 +241,26 @@ def save_processed_data(
 def run_pipeline() -> dict:
     """
     Executa o pipeline completo de pré-processamento.
+    Assume que os dados já foram baixados via data_loader.py
     """
     print("=" * 60)
     print("PIPELINE DE PRÉ-PROCESSAMENTO")
     print("=" * 60)
     
-    # 1. Carregar dados
+    # Criar estrutura de pastas se não existir
+    (BASE_DIR / 'data' / 'interim').mkdir(parents=True, exist_ok=True)
+    (BASE_DIR / 'data' / 'processed').mkdir(parents=True, exist_ok=True)
+    
+    # 1. Carregar dados do CSV (já baixado pelo data_loader.py)
     print("Etapa 1: Carregamento de dados - ", end="")
-    df_raw = load_raw_data(RAW_DATA_PATH)
+    if not RAW_DATA_PATH.exists():
+        raise FileNotFoundError(
+            f"Dataset não encontrado em: {RAW_DATA_PATH}\n"
+            f"Execute primeiro: python src/data_loader.py"
+        )
+    df_raw = pd.read_csv(RAW_DATA_PATH)
     print("OK")
-    print(f"Colunas carregadas: {df_raw.columns.tolist()}")
+    print(f"  Dimensões: {df_raw.shape[0]:,} linhas × {df_raw.shape[1]} colunas")
     
     # 2. Limpeza
     print("Etapa 2: Limpeza de dados - ", end="")
