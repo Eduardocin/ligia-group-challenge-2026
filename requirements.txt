@@ -11,6 +11,7 @@ xgboost
 matplotlib
 seaborn
 joblib
+shap
 
 # Web App
 streamlit
