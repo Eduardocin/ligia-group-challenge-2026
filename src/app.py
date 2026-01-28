@@ -12,6 +12,7 @@ from pathlib import Path
 import joblib
 import pdfplumber
 import re
+from model_training import run_model_training_pipeline
 
 # Configurações iniciais
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -49,8 +50,11 @@ if 'view_mode' not in st.session_state:
 @st.cache_resource
 def load_model():
     model_path = MODELS_DIR / 'best_model.pkl'
-    if model_path.exists(): return joblib.load(model_path)
-    return None
+    if model_path.exists():
+        return joblib.load(model_path)
+    else:
+        run_model_training_pipeline()
+        return joblib.load(model_path)
 
 @st.cache_resource
 def load_scaler():
@@ -290,9 +294,6 @@ def main():
             </div>
         </div>
     """, unsafe_allow_html=True)
-
-    model = load_model()
-
 
     model = load_model()
     scaler = load_scaler()

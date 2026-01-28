@@ -15,6 +15,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 import joblib
 import warnings
+from data_loader import load_data
 
 warnings.filterwarnings('ignore')
 
@@ -238,7 +239,7 @@ def save_processed_data(
 
 
 
-def run_pipeline() -> dict:
+def run_preprocessing_pipeline() -> dict:
     """
     Executa o pipeline completo de pré-processamento.
     Assume que os dados já foram baixados via data_loader.py
@@ -254,11 +255,9 @@ def run_pipeline() -> dict:
     # 1. Carregar dados do CSV (já baixado pelo data_loader.py)
     print("Etapa 1: Carregamento de dados - ", end="")
     if not RAW_DATA_PATH.exists():
-        raise FileNotFoundError(
-            f"Dataset não encontrado em: {RAW_DATA_PATH}\n"
-            f"Execute primeiro: python src/data_loader.py"
-        )
-    df_raw = pd.read_csv(RAW_DATA_PATH)
+        load_data()
+    else:
+        df_raw = pd.read_csv(RAW_DATA_PATH)
     print("OK")
     print(f"  Dimensões: {df_raw.shape[0]:,} linhas × {df_raw.shape[1]} colunas")
     
@@ -338,4 +337,4 @@ def run_pipeline() -> dict:
 
 
 if __name__ == "__main__":
-    result = run_pipeline()
+    result = run_preprocessing_pipeline()

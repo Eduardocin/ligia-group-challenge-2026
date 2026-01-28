@@ -13,6 +13,7 @@ import pandas as pd
 import joblib
 from pathlib import Path
 import warnings
+from preprocessing import run_preprocessing_pipeline
 
 warnings.filterwarnings('ignore')
 
@@ -53,7 +54,10 @@ def save_model(model, model_path=None):
     joblib.dump(model, model_path)
     print(f"✓ Modelo salvo em: {model_path}")
 
-if __name__ == "__main__":
+def run_model_training_pipeline():
+    if not PROCESSED_DIR.exists():
+        run_preprocessing_pipeline()
+
     # Carrega os dados
     print("Carregando dados processados...")
     X_train = pd.read_csv(X_TRAIN_PATH)
@@ -70,3 +74,6 @@ if __name__ == "__main__":
     print("="*60)
     print("✓ TREINAMENTO CONCLUÍDO COM SUCESSO!")
     print("="*60)
+
+if __name__ == "__main__":
+    run_model_training_pipeline()
