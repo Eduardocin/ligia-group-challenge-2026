@@ -12,8 +12,8 @@ from pathlib import Path
 import joblib
 import pdfplumber
 import re
+import shap
 from model_training import run_model_training_pipeline
-
 # Configurações iniciais
 BASE_DIR = Path(__file__).resolve().parent.parent
 MODELS_DIR = BASE_DIR / 'models'
@@ -21,25 +21,61 @@ PROCESSED_DIR = BASE_DIR / 'data' / 'processed'
 
 st.set_page_config(page_title="Diagnóstico Cardiovascular", page_icon="❤️", layout="wide")
 
-# Dicionários de conversão de dados
-MAP_GENDER = {"Masculino": 1, "Feminino": 0}
-MAP_ANGINA = {"Sim": 1, "Não": 0}
-MAP_CHEST_PAIN = {
-    "Angina Típica": 0,
-    "Angina Atípica": 1,
-    "Dor Não-Anginosa": 2,
-    "Assintomático": 3
+# Dicionários centralizados de conversão e categorização
+CATEGORY_MAPS = {
+    'gender': {
+        'input': {"Masculino": 1, "Feminino": 0},
+        'output': {0: 'Feminino', 1: 'Masculino'}
+    },
+    'angina': {
+        'input': {"Sim": 1, "Não": 0},
+        'output': {0: 'Não', 1: 'Sim'}
+    },
+    'chestpain': {
+        'input': {"Angina Típica": 0, "Angina Atípica": 1, "Dor Não-Anginosa": 2, "Assintomático": 3},
+        'output': {0: 'Angina Típica', 1: 'Angina Atípica', 2: 'Dor Não-Anginosa', 3: 'Assintomático'}
+    },
+    'ecg': {
+        'input': {"Normal": 0, "Anormalidade ST-T": 1, "Hipertrofia Ventricular": 2},
+        'output': {0: 'Normal', 1: 'Anormalidade ST-T', 2: 'Hipertrofia Ventricular'}
+    },
+    'slope': {
+        'input': {"Ascendente": 1, "Plano": 2, "Descendente": 3, "Não informado": None},
+        'output': {1: 'Ascendente', 2: 'Plano', 3: 'Descendente'}
+    },
+    'age_group': {
+        'output': {0: '<40 anos', 1: '40-60 anos', 2: '>60 anos'}
+    },
+    'chol_category': {
+        'output': {0: 'Normal (<200)', 1: 'Limítrofe (200-240)', 2: 'Alto (>240)'}
+    },
+    'bp_category': {
+        'output': {0: 'Normal (<120)', 1: 'Elevada (120-160)', 2: 'Alta (>160)'}
+    }
 }
-MAP_ECG = {
-    "Normal": 0,
-    "Anormalidade ST-T": 1,
-    "Hipertrofia Ventricular": 2
-}
-MAP_SLOPE = {
-    "Ascendente": 1,
-    "Plano": 2,
-    "Descendente": 3,
-    "Não informado": None
+
+# Legacy maps para compatibilidade
+MAP_GENDER = CATEGORY_MAPS['gender']['input']
+MAP_ANGINA = CATEGORY_MAPS['angina']['input']
+MAP_CHEST_PAIN = CATEGORY_MAPS['chestpain']['input']
+MAP_ECG = CATEGORY_MAPS['ecg']['input']
+MAP_SLOPE = CATEGORY_MAPS['slope']['input']
+
+# Mapeamento de nomes das features
+FEATURE_NAMES = {
+    'noofmajorvessels': 'Nº de Vasos Afetados',
+    'bp_age_index': 'Índice PA × Idade',
+    'cholesterol_age_ratio': 'Colesterol/Idade',
+    'maxheartrate': 'Freq. Cardíaca Máxima',
+    'chronotropic_reserve': 'Reserva Cronotrópica',
+    'oldpeak': 'Depressão de ST',
+    'gender': 'Gênero',
+    'chestpain': 'Tipo de Dor no Peito',
+    'slope': 'Inclinação do ST',
+    'restingrelectro': 'ECG em Repouso',
+    'age_group': 'Faixa Etária',
+    'chol_category': 'Categoria de Colesterol',
+    'bp_category': 'Categoria de PA'
 }
 
 # Controle de estado da interface
@@ -69,7 +105,10 @@ def load_selected_features():
     return None
 
 # Processamento e predição
-def make_prediction(model, scaler, data: dict) -> int:
+def make_prediction(model, scaler, data: dict) -> tuple:
+    """
+    Realiza predição e retorna (resultado, X_processado, importâncias)
+    """
     safe_data = data.copy()
     defaults = {'age': 50, 'serumcholestrol': 200, 'restingBP': 120, 'maxheartrate': 150}
     
@@ -103,7 +142,23 @@ def make_prediction(model, scaler, data: dict) -> int:
     # Selecionar apenas as features que o modelo espera
     X = X[model_features]
     
-    return int(model.predict(X)[0])
+    prediction = int(model.predict(X)[0])
+    
+    # Calcular SHAP values (importância LOCAL para esta predição específica)
+    try:
+        explainer = shap.TreeExplainer(model)
+        shap_values = explainer.shap_values(X)
+        
+        # Para classificação binária, pegar os valores para a classe positiva (doença)
+        if isinstance(shap_values, list):
+            shap_values_local = shap_values[1][0]  # Classe 1 (doença)
+        else:
+            shap_values_local = shap_values[0]
+    except Exception as e:
+        print(f"Erro ao calcular SHAP: {e}")
+        shap_values_local = None
+    
+    return prediction, X, model_features, shap_values_local
 
 # Leitura e extração do PDF
 def extract_features_from_pdfs(uploaded_files):
@@ -296,6 +351,7 @@ def main():
     """, unsafe_allow_html=True)
 
     model = load_model()
+
     scaler = load_scaler()
 
     mode = st.radio("Selecione o modo:", ["📝 Inserção Manual", "📂 Upload de Exames (PDF)"], 
@@ -315,8 +371,8 @@ def main():
                 st.error("Preencha todos os campos.")
             elif model:
                 try:
-                    res = make_prediction(model, scaler, data)
-                    show_result(res)
+                    res, X_data, features, shap_vals = make_prediction(model, scaler, data)
+                    show_result(res, X_data, features, shap_vals, scaler)
                 except Exception as e: st.error(f"Erro: {e}")
 
     elif st.session_state.view_mode == "📂 Upload de Exames (PDF)":
@@ -347,19 +403,171 @@ def main():
                         st.error("Preencha os campos em vermelho.")
                     elif model:
                         try:
-                            res = make_prediction(model, scaler, data_pdf)
-                            show_result(res)
+                            res, X_data, features, shap_vals = make_prediction(model, scaler, data_pdf)
+                            show_result(res, X_data, features, shap_vals, scaler)
                         except Exception as e: st.error(f"Erro: {e}")
             with col_b2:
                 if st.button("🗑️ Limpar", type="primary"):
                     st.session_state.pdf_loaded = False
                     st.rerun()
 
+
+
+# Features numéricas que precisam ser "desnormalizadas" para visualização
+NUMERICAL_FEATURES_ORIGINAL = [
+    'age', 'restingBP', 'serumcholestrol', 'maxheartrate', 
+    'oldpeak', 'noofmajorvessels', 'cholesterol_age_ratio', 
+    'bp_age_index', 'chronotropic_reserve'
+]
+
+def desnormalizar_valor(feature_name, valor_normalizado, scaler):
+    #Desnormaliza um valor numérico usando o scaler
+    if scaler is None or feature_name not in NUMERICAL_FEATURES_ORIGINAL:
+        return valor_normalizado
+    
+    try:
+        if hasattr(scaler, 'feature_names_in_'):
+            if feature_name not in scaler.feature_names_in_:
+                return valor_normalizado
+            idx = list(scaler.feature_names_in_).index(feature_name)
+        else:
+            return valor_normalizado
+        
+        valor_original = valor_normalizado * scaler.scale_[idx] + scaler.mean_[idx]
+        return valor_original
+    except:
+        return valor_normalizado
+
+def formatar_valor_feature(feature_name, valor):
+    # Tentar converter para int para features categóricas
+    valor_int = int(round(valor))
+    
+    if feature_name in CATEGORY_MAPS and 'output' in CATEGORY_MAPS[feature_name]:
+        return CATEGORY_MAPS[feature_name]['output'].get(valor_int, f"{valor_int}")
+    
+    # Features numéricas - mostrar com 1-2 casas decimais
+    if abs(valor) < 10:
+        return f"{valor:.2f}"
+    else:
+        return f"{valor:.1f}"
+
 # Exibição do resultado final
-def show_result(prediction):
-    st.markdown("### Resultado:")
-    if prediction == 1: st.error("⚠️ ALTO RISCO DETECTADO")
-    else: st.success("✅ BAIXO RISCO DETECTADO")
+def show_result(prediction, X_data=None, feature_names=None, shap_values_local=None, scaler=None):
+    st.markdown("### 📋 Resultado da Análise:")
+    
+    # Resultado principal
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        if prediction == 1:
+            st.error("⚠️ ALTO RISCO DE DOENÇA CARDIOVASCULAR DETECTADO", icon="🚨")
+        else:
+            st.success("✅ BAIXO RISCO DETECTADO", icon="✅")
+    
+    # Mostrar importância LOCAL das features se disponível (SHAP values)
+    if X_data is not None and feature_names is not None and shap_values_local is not None:
+        st.divider()
+        st.markdown("#### 🔍 Fatores Decisivos Para ESTA Análise:")
+        st.caption("Cada análise pode ter influenciadores DIFERENTES, dependendo dos valores do paciente")
+        
+        shap_df = pd.DataFrame({
+            'Feature': feature_names,
+            'SHAP_Value': shap_values_local,
+            'Abs_SHAP': np.abs(shap_values_local),
+            'Valor_Paciente': X_data.iloc[0].values
+        }).sort_values('Abs_SHAP', ascending=False) 
+        
+        # Top 5 features que mais influenciaram ESTA predição
+        top_features = shap_df.head(5)
+        
+        # Exibir gráfico com cores (vermelho = aumenta risco, verde = diminui risco)
+        col_chart, col_table = st.columns([1.5, 1])
+        
+        with col_chart:
+            chart_data = top_features.copy()
+            chart_data['Feature_PT'] = chart_data['Feature'].map(FEATURE_NAMES)
+            chart_data = chart_data.sort_values('Abs_SHAP', ascending=False)  
+            
+            st.markdown("**Impacto de Cada Fator:**")
+            
+            max_impact = chart_data['Abs_SHAP'].max()
+            
+            for _, row in chart_data.iterrows():
+                feature_name = row['Feature_PT']
+                shap_val = row['SHAP_Value']
+                abs_val = abs(shap_val)
+                
+                # Calcular porcentagem
+                pct_width = int((abs_val / max_impact * 100)) if max_impact > 0 else 0
+                pct_impact = abs(shap_val) * 100 
+                
+                # Cor baseada no sinal
+                color = '#51CF66' if shap_val < 0 else '#FF6B6B'
+                direction = '↓ Reduz' if shap_val < 0 else '↑ Aumenta'
+                
+                # HTML para barra colorida com porcentagem
+                html_bar = f"""
+                <div style="margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span style="font-weight: bold; font-size: 14px;">{feature_name}</span>
+                        <span style="font-size: 12px; color: {'#51CF66' if shap_val < 0 else '#FF6B6B'}">{direction} risco ({pct_impact:.1f}%)</span>
+                    </div>
+                    <div style="width: 100%; background-color: #e0e0e0; border-radius: 4px; height: 20px; overflow: hidden;">
+                        <div style="width: {pct_width}%; background-color: {color}; height: 100%; transition: width 0.3s;"></div>
+                    </div>
+                </div>
+                """
+                st.markdown(html_bar, unsafe_allow_html=True)
+            
+            st.caption("""
+            🟢 **Verde**: fatores que REDUZEM o risco | 🔴 **Vermelho**: fatores que AUMENTAM o risco
+            """)
+        
+        with col_table:
+            st.markdown("**Top 5 Influenciadores:**")
+            for idx, (_, row) in enumerate(top_features.iterrows(), 1):
+                feature_pt = FEATURE_NAMES.get(row['Feature'], row['Feature'])
+                direction = "↑ Aumenta" if row['SHAP_Value'] > 0 else "↓ Diminui"
+                pct_impact = abs(row['SHAP_Value']) * 100
+                
+                # Tentar desnormalizar o valor
+                valor_display = desnormalizar_valor(row['Feature'], row['Valor_Paciente'], scaler)
+                valor_formatado = formatar_valor_feature(row['Feature'], valor_display)
+                
+                st.markdown(f"""
+                **{idx}. {feature_pt}**  
+                {direction} risco ({pct_impact:.1f}%)  
+                Seu valor: {valor_formatado}
+                """)
+        
+        st.divider()
+        
+        if prediction == 1:
+            st.markdown("""
+            ⚠️ **Importante - Próximos Passos:**
+            
+            Os fatores listados acima indicaram um risco potencial de doença cardiovascular. 
+            **Isto NÃO é um diagnóstico definitivo** - é apenas um indicador baseado em seus dados clínicos.
+            
+            ✓ **Recomendações:**
+            - Agende uma consulta com um cardiologista para avaliação completa
+            - Não ignore estes resultados - a detecção precoce é importante
+            - Leve este relatório para sua consulta médica
+            - Mantenha hábitos saudáveis: exercício regular, dieta balanceada, redução de estresse
+            """)
+        else:
+            st.markdown("""
+            ✅ **Boas Notícias!**
+            
+            Sua análise não apresentou sinais claros de doença cardiovascular nos fatores avaliados.
+            **Porém, isto não substitui uma avaliação médica profissional.**
+            
+            ✓ **Mantenha:**
+            - Exercícios físicos regulares
+            - Dieta saudável com pouco sal e gordura
+            - Controle do estresse
+            - Acompanhamento médico periódico (mesmo sem risco)
+            """)
+
 
 if __name__ == "__main__":
     main()
