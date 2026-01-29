@@ -27,7 +27,7 @@ CATEGORY_MAPS = {
         'input': {"Masculino": 1, "Feminino": 0},
         'output': {0: 'Feminino', 1: 'Masculino'}
     },
-    'angina': {
+    'exerciseangia': {
         'input': {"Sim": 1, "Não": 0},
         'output': {0: 'Não', 1: 'Sim'}
     },
@@ -35,7 +35,7 @@ CATEGORY_MAPS = {
         'input': {"Angina Típica": 0, "Angina Atípica": 1, "Dor Não-Anginosa": 2, "Assintomático": 3},
         'output': {0: 'Angina Típica', 1: 'Angina Atípica', 2: 'Dor Não-Anginosa', 3: 'Assintomático'}
     },
-    'ecg': {
+    'restingrelectro': {
         'input': {"Normal": 0, "Anormalidade ST-T": 1, "Hipertrofia Ventricular": 2},
         'output': {0: 'Normal', 1: 'Anormalidade ST-T', 2: 'Hipertrofia Ventricular'}
     },
@@ -56,9 +56,9 @@ CATEGORY_MAPS = {
 
 # Legacy maps para compatibilidade
 MAP_GENDER = CATEGORY_MAPS['gender']['input']
-MAP_ANGINA = CATEGORY_MAPS['angina']['input']
+MAP_ANGINA = CATEGORY_MAPS['exerciseangia']['input']
 MAP_CHEST_PAIN = CATEGORY_MAPS['chestpain']['input']
-MAP_ECG = CATEGORY_MAPS['ecg']['input']
+MAP_ECG = CATEGORY_MAPS['restingrelectro']['input']
 MAP_SLOPE = CATEGORY_MAPS['slope']['input']
 
 # Mapeamento de nomes das features
@@ -445,7 +445,11 @@ def formatar_valor_feature(feature_name, valor):
     if feature_name in CATEGORY_MAPS and 'output' in CATEGORY_MAPS[feature_name]:
         return CATEGORY_MAPS[feature_name]['output'].get(valor_int, f"{valor_int}")
     
-    # Features numéricas - mostrar com 1-2 casas decimais
+    # Features numéricas - se for inteiro, mostrar sem decimais
+    if valor == valor_int:
+        return f"{valor_int}"
+    
+    # Caso contrário, mostrar com 1-2 casas decimais
     if abs(valor) < 10:
         return f"{valor:.2f}"
     else:
