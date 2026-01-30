@@ -93,7 +93,8 @@ notebooks:
 	$(PYTHON_INTERPRETER) -m jupyter nbconvert --to notebook --execute notebooks/1.3_analise_bivariada.ipynb
 	$(PYTHON_INTERPRETER) -m jupyter nbconvert --to notebook --execute notebooks/2.0_limpeza_dados.ipynb
 	$(PYTHON_INTERPRETER) -m jupyter nbconvert --to notebook --execute notebooks/2.1_feature_engineering.ipynb
-	$(PYTHON_INTERPRETER) -m jupyter nbconvert --to notebook --execute notebooks/3.1_treinamento_do_modelo.ipynb
+	$(PYTHON_INTERPRETER) -m jupyter nbconvert --to notebook --execute notebooks/3.0_treinamento_do_modelo.ipynb
+	$(PYTHON_INTERPRETER) -m jupyter nbconvert --to notebook --execute notebooks/3.1_comparacao_com_baseline.ipynb
 	@echo ">>> Notebooks executados com sucesso!"
 
 
