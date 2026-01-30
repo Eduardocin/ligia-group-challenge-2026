@@ -26,6 +26,32 @@ Este projeto utiliza o **Cardiovascular Disease Dataset** do Kaggle, que contém
 - **noofmajorvessels**: Número de vasos principais
 - **target**: Presença de doença cardíaca (0=Não, 1=Sim)
 
+## 🤖 Modelo Treinado
+
+XGBoost Classifier otimizado
+  
+### 📊 Performance do Modelo (Validação Cruzada 5-fold)
+- **Accuracy**: 95.02%
+- **Recall**: 98.64%
+- **Precision**: 92.89%
+- **F1-score**: 95.65%
+
+### ⚙️ Hiperparâmetros Otimizados
+```python
+{
+    'colsample_bytree': 0.7,
+    'learning_rate': 0.01,
+    'max_depth': 5,
+    'n_estimators': 50,
+    'subsample': 1.0
+}
+```
+
+
+**Arquivos de Pré-processamento** (salvos em `data/processed/`):
+- `scaler.pkl`: StandardScaler treinado para normalização das features
+- `selected_features.pkl`: Lista das features selecionadas pelo modelo
+
 ## 🚀 Setup do Ambiente
 
 ### Pré-requisitos
