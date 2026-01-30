@@ -44,6 +44,9 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     # Remover linhas com valores faltantes
     df_clean = df_clean.dropna().reset_index(drop=True)
 
+    # Transformar valores de 'slope' de 0 para 1
+    df_clean['slope'] = df_clean['slope'].replace(0, 1)
+    
     # Verificar e remover duplicatas
     duplicates = df_clean.duplicated().sum()
     if duplicates > 0:
