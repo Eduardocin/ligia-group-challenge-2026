@@ -72,7 +72,67 @@ python -c "import numpy, pandas, sklearn, mlcroissant; print('✅ Ambiente confi
 
 ## 🔄 Fluxo de Execução
 
-### Opção 1: Pipeline Completo Automatizado (Recomendado)
+### ⚙️ Requisitos para Automação com Make
+
+O **Makefile** facilita a execução do projeto, mas requer configuração específica por plataforma:
+
+<details>
+<summary><b>🐧 Linux/Mac</b></summary>
+
+✅ **Make já vem instalado!** Pode usar todos os comandos diretamente.
+
+```bash
+make pipeline
+make app
+```
+</details>
+
+<details>
+<summary><b>🪟 Windows - Opções Disponíveis</b></summary>
+
+O Make **NÃO funciona nativamente** no Windows. Escolha uma das opções:
+
+#### **Opção 1: WSL (Windows Subsystem for Linux) - Recomendado** ⭐
+```powershell
+# 1. Instalar WSL (Execute como Administrador no PowerShell)
+wsl --install
+
+# 2. Reinicie o computador
+
+# 3. Abra o WSL e navegue até o projeto
+cd /mnt/c/Users/seu_usuario/caminho/do/projeto
+
+# 4. Use comandos make normalmente
+make pipeline
+```
+
+#### **Opção 2: Git Bash** 🔧
+```bash
+# Vem instalado com Git for Windows
+# Abra Git Bash e execute:
+make pipeline
+make app
+```
+**Nota**: Alguns comandos podem não funcionar 100% no Git Bash.
+
+#### **Opção 3: Sem Make - Comandos Python Diretos** 💻
+```powershell
+# Ative o ambiente primeiro
+conda activate ligia
+
+# Execute os scripts Python diretamente
+python src/data_loader.py
+python src/preprocessing.py
+python src/model_training.py
+streamlit run src/app.py
+```
+</details>
+
+---
+
+### 📋 Opções de Execução
+
+#### **Opção 1: Pipeline Completo Automatizado (Linux/Mac/WSL)**
 
 ```bash
 make pipeline
@@ -83,7 +143,7 @@ Este comando executa automaticamente:
 2. **Pré-processamento** (`make preprocess`) - Limpa dados e cria features
 3. **Treinamento** (`make train`) - Treina e salva o modelo
 
-### Opção 2: Executar Etapas Individualmente
+#### **Opção 2: Executar Etapas Individualmente (Linux/Mac/WSL)**
 
 ```bash
 # 1. Baixar dados
@@ -99,9 +159,12 @@ make train
 make app
 ```
 
-### Opção 3: Executar Scripts Python Diretamente
+#### **Opção 3: Scripts Python Diretos (Todas as Plataformas)** ✅
 
 ```bash
+# Certifique-se de ativar o ambiente primeiro
+conda activate ligia
+
 # 1. Baixar dados
 python src/data_loader.py
 
@@ -117,39 +180,19 @@ streamlit run src/app.py
 
 ## 📊 Como Executar o App Streamlit
 
+### Linux/Mac/WSL
 ```bash
 make app
-# Ou
+```
+
+### Todas as Plataformas (Método Alternativo)
+```bash
+conda activate ligia
 streamlit run src/app.py
 ```
 
 Abra o navegador em `http://localhost:8501` para visualizar o app.
 
-## 📓 Executar Notebooks
-
-### Opção 1: Jupyter Lab
-```bash
-jupyter lab
-```
-
-### Opção 2: VS Code
-Abra os notebooks diretamente no VS Code com a extensão Jupyter instalada.
-
-### Opção 3: Executar todos os notebooks via CLI
-```bash
-make notebooks
-```
-
-## 🛠️ Comandos Úteis do Makefile
-
-```bash
-make help              # Ver todos os comandos disponíveis
-make requirements      # Instalar/atualizar dependências
-make clean             # Limpar arquivos compilados Python
-make lint              # Verificar código com ruff
-make format            # Formatar código com ruff
-make create_environment # Criar ambiente conda
-```
 
 
 ## 📁 Project Organization
@@ -209,6 +252,9 @@ make create_environment # Criar ambiente conda
 
 ## 🛠️ Comandos Úteis (Makefile)
 
+> **⚠️ Nota para Usuários Windows**: Os comandos `make` abaixo funcionam apenas em Linux/Mac/WSL. Para Windows, consulte a seção "Alternativas para Windows" abaixo.
+
+### Comandos Make (Linux/Mac/WSL)
 ```bash
 # Pipeline completo
 make pipeline           # Executa: download → preprocess → train
@@ -229,6 +275,33 @@ make lint               # Verifica qualidade do código com ruff
 make format             # Formata código automaticamente com ruff
 make create_environment # Cria ambiente conda
 make help               # Lista todos os comandos disponíveis
+```
+
+### 🪟 Alternativas para Windows (PowerShell)
+
+```powershell
+# Ative o ambiente primeiro
+conda activate ligia
+
+# Pipeline completo (manual)
+python src/data_loader.py
+python src/preprocessing.py
+python src/model_training.py
+
+# Executar app
+streamlit run src/app.py
+
+# Desenvolvimento
+python -m pip install -r requirements.txt  # Instalar dependências
+
+# Limpeza de cache
+Get-ChildItem -Recurse -Filter "*.pyc" | Remove-Item -Force
+Get-ChildItem -Recurse -Filter "__pycache__" | Remove-Item -Recurse -Force
+
+# Qualidade de código
+python -m ruff check                       # Verificar código
+python -m ruff format                      # Formatar código
+python -m ruff check --fix                 # Corrigir problemas automaticamente
 ```
 
 ## 📝 Convenções do Projeto
